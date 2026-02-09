@@ -99,7 +99,6 @@ RIDE_IMAGE_MAP = {
     "expedition everest": "everest",
     "kilimanjaro": "kilimanjaro",
     "safari": "kilimanjaro",
-    "dinosaur": "dinosaur",
     "kali river": "kali_river",
     "lion king": "lion_king",
     "festival of the lion": "lion_king",

@@ -148,8 +148,8 @@ Guardians of the Galaxy: Cosmic Rewind, Frozen Ever After, Test Track, Remy's Ra
 **Hollywood Studios (12 rides):**
 Rise of the Resistance, Millennium Falcon: Smugglers Run, Tower of Terror, Slinky Dog Dash, Rock 'n' Roller Coaster, Toy Story Mania, Alien Swirling Saucers, Star Tours, Mickey & Minnie's Runaway Railway, Indiana Jones Stunt Spectacular
 
-**Animal Kingdom (10 rides):**
-Avatar Flight of Passage, Na'vi River Journey, Expedition Everest, Kilimanjaro Safaris, DINOSAUR, Kali River Rapids, Festival of the Lion King, Finding Nemo: The Big Blue and Beyond
+**Animal Kingdom (9 rides):**
+Avatar Flight of Passage, Na'vi River Journey, Expedition Everest, Kilimanjaro Safaris, Kali River Rapids, Festival of the Lion King, Finding Nemo: The Big Blue and Beyond
 
 ---
 

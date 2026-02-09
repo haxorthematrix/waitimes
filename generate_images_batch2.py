@@ -67,8 +67,6 @@ RIDES = [
     ("indiana_jones", "Indiana Jones Epic Stunt Spectacular at Disney's Hollywood Studios, a massive desert archaeological dig set, adventure movie theming with ancient ruins and props, dramatic action movie atmosphere"),
 
     # Animal Kingdom additions
-    ("dinosaur", "DINOSAUR ride at Disney's Animal Kingdom DinoLand USA, a time travel research facility themed entrance, prehistoric dinosaur theming, scientific expedition aesthetic, dramatic jungle atmosphere"),
-
     ("kali_river", "Kali River Rapids at Disney's Animal Kingdom Asia, a whitewater rafting adventure entrance, lush Asian rainforest theming, bamboo and temple architecture, rushing river atmosphere"),
 
     ("lion_king", "Festival of the Lion King at Disney's Animal Kingdom Africa, a vibrant African celebration theater entrance, colorful tribal decorations, Pride Rock inspired architecture, celebratory atmosphere"),

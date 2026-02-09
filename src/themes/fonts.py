@@ -143,7 +143,6 @@ RIDE_THEME_MAP = {
     "expedition everest": "adventure",
     "kilimanjaro": "adventure",
     "safari": "adventure",
-    "dinosaur": "adventure",
     "kali river": "adventure",
     "lion king": "adventure",
     "festival of the lion": "adventure",
