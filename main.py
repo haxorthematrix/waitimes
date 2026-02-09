@@ -202,6 +202,7 @@ Examples:
     try:
         # Start background data refresh thread
         refresh_interval = api_config.get("refresh_interval", 300)
+        display.running = True  # Set before starting refresh thread
         refresh_thread = create_data_refresh_thread(
             client, display, refresh_interval, logger
         )
