@@ -104,6 +104,30 @@ RIDE_IMAGE_MAP = {
     "festival of the lion": "lion_king",
     "finding nemo": "finding_nemo_show",
     "big blue": "finding_nemo_show",
+    "zootopia": "zootopia",
+    "gorilla falls": "gorilla_falls",
+    "wildlife express": "wildlife_express",
+
+    # Magic Kingdom misc
+    "railroad": "railroad",
+    "hall of presidents": "hall_presidents",
+    "speedway": "speedway",
+    "regal carrousel": "carrousel",
+
+    # Character meets
+    "meet mickey": "meet_mickey",
+    "town square theater": "meet_mickey",
+    "princess fairytale hall": "meet_princesses",
+    "meet cinderella": "meet_princesses",
+    "meet princess tiana": "meet_princesses",
+    "royal sommerhus": "meet_anna_elsa",
+    "meet anna": "meet_anna_elsa",
+    "meet elsa": "meet_anna_elsa",
+    "red carpet dreams": "meet_characters",
+    "meet olaf": "meet_characters",
+    "celebrity spotlight": "meet_characters",
+    "adventurers outpost": "meet_characters",
+    "meet beloved": "meet_characters",
 }
 
 

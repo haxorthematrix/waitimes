@@ -149,6 +149,25 @@ RIDE_THEME_MAP = {
     "finding nemo": "whimsical",
     "big blue": "whimsical",
     "gorilla falls": "adventure",
+    "zootopia": "playful",
+    "wildlife express": "adventure",
+    "railroad": "classic",
+    "hall of presidents": "classic",
+    "speedway": "future",
+    "regal carrousel": "fantasy",
+
+    # Character meets
+    "meet mickey": "classic",
+    "town square": "classic",
+    "princess fairytale": "fantasy",
+    "royal sommerhus": "fantasy",
+    "meet anna": "fantasy",
+    "meet elsa": "fantasy",
+    "red carpet": "playful",
+    "meet olaf": "fantasy",
+    "celebrity spotlight": "playful",
+    "adventurers outpost": "adventure",
+    "meet beloved": "classic",
 }
 
 # Default theme for rides not in the map
