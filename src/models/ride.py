@@ -4,6 +4,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+# TEST MODE: Set park slugs to simulate as closed (empty list = normal operation)
+# Examples: ["magic_kingdom"], ["magic_kingdom", "epcot"], ["magic_kingdom", "epcot", "hollywood_studios", "animal_kingdom"]
+TEST_CLOSED_PARKS: list[str] = []
+
 
 @dataclass
 class Ride:
@@ -128,7 +132,9 @@ class WaitTimesData:
 
         closed = []
         for slug, park in self.parks.items():
-            if not park.open_rides:
+            # Check if park is actually closed OR in test mode
+            is_closed = not park.open_rides or slug in TEST_CLOSED_PARKS
+            if is_closed:
                 opens_at = default_opens.get(slug, "9:00 AM")
                 closed.append(ClosedPark(
                     name=park.name,
@@ -140,8 +146,16 @@ class WaitTimesData:
     def get_display_items(self) -> list:
         """Get all items to display: open rides + closed parks."""
         items = []
-        # Add open rides
-        items.extend(self.all_open_rides)
+        # Add open rides (excluding test-closed parks)
+        for ride in self.all_open_rides:
+            # Check if this ride's park is in test closed mode
+            park_slug = None
+            for slug, park in self.parks.items():
+                if park.name == ride.park_name:
+                    park_slug = slug
+                    break
+            if park_slug not in TEST_CLOSED_PARKS:
+                items.append(ride)
         # Add closed parks
         items.extend(self.closed_parks)
         return items
