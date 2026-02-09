@@ -65,6 +65,23 @@ class Park:
 
 
 @dataclass
+class ClosedPark:
+    """Represents a closed park for display purposes."""
+
+    name: str
+    slug: str  # e.g., "magic_kingdom"
+    opens_at: Optional[str] = None  # e.g., "9:00 AM"
+
+    @property
+    def is_closed_park(self) -> bool:
+        """Marker to identify this as a closed park display item."""
+        return True
+
+    def __repr__(self) -> str:
+        return f"ClosedPark({self.name}, opens: {self.opens_at})"
+
+
+@dataclass
 class WaitTimesData:
     """Container for all wait times data."""
 
@@ -97,3 +114,34 @@ class WaitTimesData:
             return -1
         age = datetime.now() - self.last_fetch
         return int(age.total_seconds() / 60)
+
+    @property
+    def closed_parks(self) -> list[ClosedPark]:
+        """Get parks that have no open rides (likely closed)."""
+        # Typical park opening times (Eastern Time)
+        default_opens = {
+            "magic_kingdom": "9:00 AM",
+            "epcot": "9:00 AM",
+            "hollywood_studios": "8:30 AM",
+            "animal_kingdom": "8:00 AM",
+        }
+
+        closed = []
+        for slug, park in self.parks.items():
+            if not park.open_rides:
+                opens_at = default_opens.get(slug, "9:00 AM")
+                closed.append(ClosedPark(
+                    name=park.name,
+                    slug=slug,
+                    opens_at=opens_at
+                ))
+        return closed
+
+    def get_display_items(self) -> list:
+        """Get all items to display: open rides + closed parks."""
+        items = []
+        # Add open rides
+        items.extend(self.all_open_rides)
+        # Add closed parks
+        items.extend(self.closed_parks)
+        return items

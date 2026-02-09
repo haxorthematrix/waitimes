@@ -384,6 +384,25 @@ class ImageManager:
                 num_images = len(self._image_cache[folder])
                 self._cycle_index[folder] = (self._cycle_index[folder] + 1) % num_images
 
+    def get_park_image(self, park_slug: str) -> Optional[pygame.Surface]:
+        """Get an image for a park (for closed park displays)."""
+        parks_dir = IMAGES_DIR / "parks"
+        image_path = parks_dir / f"{park_slug}.png"
+
+        if not image_path.exists():
+            # Try jpg
+            image_path = parks_dir / f"{park_slug}.jpg"
+
+        if image_path.exists():
+            try:
+                img = pygame.image.load(str(image_path))
+                logger.debug(f"Loaded park image: {park_slug}")
+                return img
+            except pygame.error as e:
+                logger.warning(f"Failed to load park image {park_slug}: {e}")
+
+        return None
+
     def preload_all(self):
         """Preload images for all mapped rides."""
         folders = set(RIDE_IMAGE_MAP.values())

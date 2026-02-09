@@ -7,7 +7,7 @@ from typing import Optional
 
 import pygame
 
-from src.models.ride import Ride, WaitTimesData
+from src.models.ride import Ride, WaitTimesData, ClosedPark
 from src.themes.colors import get_color_scheme, get_wait_color, ColorScheme
 from src.themes.fonts import get_font_manager, FontManager
 from src.themes.images import get_image_manager, ImageManager
@@ -62,6 +62,7 @@ class RideDisplay:
 
         # Current state
         self.rides: list[Ride] = []
+        self.display_items: list = []  # Rides + ClosedParks
         self.current_index: int = 0
         self.time_on_current: float = 0.0
 
@@ -128,7 +129,8 @@ class RideDisplay:
     def set_rides(self, data: WaitTimesData):
         """Update the list of rides to display."""
         self.rides = data.all_open_rides
-        if self.current_index >= len(self.rides):
+        self.display_items = data.get_display_items()
+        if self.current_index >= len(self.display_items):
             self.current_index = 0
 
         # Update data freshness tracking
@@ -140,7 +142,8 @@ class RideDisplay:
         else:
             self.last_error = None
 
-        logger.info(f"Display updated with {len(self.rides)} rides")
+        closed_count = len(data.closed_parks)
+        logger.info(f"Display updated with {len(self.rides)} rides, {closed_count} closed parks")
 
     def _get_data_age_minutes(self) -> int:
         """Get age of current data in minutes."""
@@ -285,6 +288,93 @@ class RideDisplay:
 
         return surface
 
+    def _render_closed_park_card(self, park: ClosedPark) -> pygame.Surface:
+        """Render a closed park card with full-screen image and closed message."""
+        theme = "classic"  # Use classic theme for parks
+        colors = get_color_scheme(theme)
+
+        # Create surface
+        surface = pygame.Surface(
+            (self.config.width, self.config.height), pygame.SRCALPHA
+        )
+
+        # Try to get park image
+        park_image = None
+        if self.image_manager:
+            park_image = self.image_manager.get_park_image(park.slug)
+
+        if park_image:
+            # Scale to fill screen
+            bg_image = pygame.transform.smoothscale(
+                park_image, (self.config.width, self.config.height)
+            )
+            surface.blit(bg_image, (0, 0))
+        else:
+            # Use gradient fallback
+            bg_image = self._create_gradient_background(theme)
+            surface.blit(bg_image, (0, 0))
+
+        # Add darkening overlay for text readability
+        dark_overlay = pygame.Surface(
+            (self.config.width, self.config.height), pygame.SRCALPHA
+        )
+        dark_overlay.fill((0, 0, 0, 120))
+        surface.blit(dark_overlay, (0, 0))
+
+        # Get fonts
+        font_park_name = self._get_font(theme, 48)
+        font_closed = self._get_font(theme, 64)
+        font_opens = self._get_font(theme, 32)
+
+        # Create semi-transparent overlay box
+        box_width = 500
+        box_height = 200
+        box_x = BOX_MARGIN
+        box_y = self.config.height - BOX_MARGIN - box_height - 30
+
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_color = (*colors.background, BOX_ALPHA)
+        pygame.draw.rect(
+            box_surface, box_color,
+            (0, 0, box_width, box_height),
+            border_radius=16
+        )
+        pygame.draw.rect(
+            box_surface, (*colors.accent, 255),
+            (0, 0, box_width, box_height),
+            width=2, border_radius=16
+        )
+        surface.blit(box_surface, (box_x, box_y))
+
+        # Render text
+        text_x = box_x + BOX_PADDING
+        text_y = box_y + BOX_PADDING
+
+        # Park name
+        name_surface = font_park_name.render(park.name, True, colors.text_primary)
+        surface.blit(name_surface, (text_x, text_y))
+        text_y += 55
+
+        # CLOSED label (in red)
+        closed_color = (231, 76, 60)  # Red
+        closed_surface = font_closed.render("CLOSED", True, closed_color)
+        surface.blit(closed_surface, (text_x, text_y))
+        text_y += 70
+
+        # Opens at time
+        if park.opens_at:
+            opens_text = f"Opens at {park.opens_at}"
+            opens_surface = font_opens.render(opens_text, True, colors.accent)
+            surface.blit(opens_surface, (text_x, text_y))
+
+        # Navigation dots
+        self._render_dots(surface, colors)
+
+        # Status indicator
+        self._render_status_indicator(surface)
+
+        return surface
+
     def _wrap_text(
         self, text: str, font: pygame.font.Font, max_width: int
     ) -> list[str]:
@@ -314,10 +404,10 @@ class RideDisplay:
 
     def _render_dots(self, surface: pygame.Surface, colors: ColorScheme):
         """Render navigation dots at bottom center."""
-        if not self.rides:
+        if not self.display_items:
             return
 
-        num_rides = len(self.rides)
+        num_rides = len(self.display_items)
         max_dots = 25
 
         if num_rides > max_dots:
@@ -422,22 +512,29 @@ class RideDisplay:
 
         return surface
 
+    def _render_display_item(self, item) -> pygame.Surface:
+        """Render a display item (Ride or ClosedPark)."""
+        if isinstance(item, ClosedPark):
+            return self._render_closed_park_card(item)
+        else:
+            return self._render_ride_card(item)
+
     def _start_transition(self):
-        """Begin transition to next ride."""
-        if len(self.rides) <= 1:
+        """Begin transition to next item."""
+        if len(self.display_items) <= 1:
             return
 
         self.transitioning = True
         self.transition_progress = 0.0
 
-        self.prev_surface = self._render_ride_card(self.rides[self.current_index])
-        self.current_index = (self.current_index + 1) % len(self.rides)
+        self.prev_surface = self._render_display_item(self.display_items[self.current_index])
+        self.current_index = (self.current_index + 1) % len(self.display_items)
 
-        # Advance image cycles after completing a full round of rides
+        # Advance image cycles after completing a full round
         if self.current_index == 0 and self.image_manager:
             self.image_manager.advance_all_cycles()
 
-        self.next_surface = self._render_ride_card(self.rides[self.current_index])
+        self.next_surface = self._render_display_item(self.display_items[self.current_index])
 
     def _update_transition(self, dt: float):
         """Update transition animation."""
@@ -472,7 +569,7 @@ class RideDisplay:
             return
 
         try:
-            if not self.rides:
+            if not self.display_items:
                 surface = self._render_no_rides()
                 self.screen.blit(surface, (0, 0))
             elif self.transitioning and self.prev_surface and self.next_surface:
@@ -482,7 +579,7 @@ class RideDisplay:
                 self.screen.blit(self.next_surface, (0, 0))
                 self.next_surface.set_alpha(255)
             else:
-                surface = self._render_ride_card(self.rides[self.current_index])
+                surface = self._render_display_item(self.display_items[self.current_index])
                 self.screen.blit(surface, (0, 0))
 
             pygame.display.flip()
