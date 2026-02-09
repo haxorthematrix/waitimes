@@ -128,6 +128,8 @@ RIDE_IMAGE_MAP = {
     "celebrity spotlight": "meet_characters",
     "adventurers outpost": "meet_characters",
     "meet beloved": "meet_characters",
+    "meet ariel": "meet_ariel",
+    "ariel at her grotto": "meet_ariel",
 }
 
 
