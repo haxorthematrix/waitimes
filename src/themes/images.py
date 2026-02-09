@@ -51,6 +51,8 @@ RIDE_IMAGE_MAP = {
     "laugh floor": "monsters_inc",
     "philharmagic": "philharmagic",
     "enchanted tiki": "tiki_room",
+    "enchanted tales": "enchanted_tales",
+    "belle": "enchanted_tales",
 
     # EPCOT
     "guardians": "guardians_galaxy",
