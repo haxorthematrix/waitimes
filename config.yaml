@@ -1,0 +1,43 @@
+# Disney Wait Times Display Configuration
+
+# API Settings
+api:
+  refresh_interval: 300  # seconds between API calls (5 minutes)
+  retry_delay: 30        # seconds between retries on failure
+  max_retries: 3
+  timeout: 10            # request timeout in seconds
+
+# Display Settings
+display:
+  width: 800
+  height: 480
+  fullscreen: false      # Set to true for Pi deployment
+  fps: 30
+
+# Rotation Settings
+rotation:
+  display_duration: 8    # seconds per ride
+  transition_duration: 0.5  # crossfade duration
+
+# Walt Disney World Park IDs (from queue-times.com)
+parks:
+  magic_kingdom:
+    id: 6
+    name: "Magic Kingdom"
+  epcot:
+    id: 5
+    name: "EPCOT"
+  hollywood_studios:
+    id: 7
+    name: "Hollywood Studios"
+  animal_kingdom:
+    id: 8
+    name: "Animal Kingdom"
+
+# Logging
+logging:
+  level: INFO
+  file: waitimes.log
+
+# Development/Debug
+debug: false
