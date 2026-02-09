@@ -2,7 +2,7 @@
 
 # API Settings
 api:
-  refresh_interval: 300  # seconds between API calls (5 minutes)
+  refresh_interval: 600  # seconds between API calls (10 minutes)
   retry_delay: 30        # seconds between retries on failure
   max_retries: 3
   timeout: 10            # request timeout in seconds
