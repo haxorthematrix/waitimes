@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Wait Time Trends - Disney Wait Times{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Database Statistics</h2>
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="value">{{ stats.wait_records | default(0) }}</div>
+            <div class="label">Total Records</div>
+        </div>
+        <div class="stat-box">
+            <div class="value">{{ rides | length }}</div>
+            <div class="label">Rides Tracked</div>
+        </div>
+        <div class="stat-box">
+            <div class="value">{{ parks | length }}</div>
+            <div class="label">Parks</div>
+        </div>
+        <div class="stat-box">
+            <div class="value">{{ stats.retention_days }}</div>
+            <div class="label">Days Retained</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Park Average Wait Times (24 Hours)</h2>
+    <div class="chart-container">
+        <canvas id="parkChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>All Tracked Rides</h2>
+    <div class="ride-list">
+        {% for ride in rides %}
+        <div class="ride-item">
+            <div class="ride-name">
+                <a href="/ride/{{ ride | urlencode }}">{{ ride }}</a>
+            </div>
+        </div>
+        {% else %}
+        <p>No rides tracked yet. Data will appear after the display collects some history.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fetch park data and create chart
+async function loadParkCharts() {
+    const parks = {{ parks | tojson }};
+    const colors = ['#4cc9f0', '#ffd700', '#ff6b6b', '#2ecc71'];
+    const datasets = [];
+
+    for (let i = 0; i < parks.length; i++) {
+        const park = parks[i];
+        try {
+            const response = await fetch(`/api/park/${encodeURIComponent(park)}?hours=24`);
+            const data = await response.json();
+
+            if (data.history && data.history.length > 0) {
+                datasets.push({
+                    label: park,
+                    data: data.history.map(h => ({
+                        x: new Date(h.timestamp),
+                        y: h.avg_wait
+                    })),
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '33',
+                    fill: false,
+                    tension: 0.4
+                });
+            }
+        } catch (e) {
+            console.error(`Error loading ${park}:`, e);
+        }
+    }
+
+    if (datasets.length > 0) {
+        const ctx = document.getElementById('parkChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'hour',
+                            displayFormats: {
+                                hour: 'h:mm a'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#aaa'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Average Wait (min)',
+                            color: '#aaa'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#aaa'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#eee'
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Need Chart.js date adapter for time scale
+const script = document.createElement('script');
+script.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js';
+script.onload = loadParkCharts;
+document.head.appendChild(script);
+</script>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}{{ ride_name }} - Disney Wait Times{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{{ ride_name }}</h2>
+
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="value">{{ stats.avg_wait }}</div>
+            <div class="label">Avg Wait (min)</div>
+        </div>
+        <div class="stat-box">
+            <div class="value">{{ stats.min_wait }}</div>
+            <div class="label">Min Wait (min)</div>
+        </div>
+        <div class="stat-box">
+            <div class="value">{{ stats.max_wait }}</div>
+            <div class="label">Max Wait (min)</div>
+        </div>
+        <div class="stat-box">
+            <div class="value">{{ stats.data_points }}</div>
+            <div class="label">Data Points</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Wait Time History ({{ hours }} Hours)</h2>
+
+    <div style="margin-bottom: 15px;">
+        <a href="?hours=6" class="{% if hours == 6 %}active{% endif %}" style="color: #4cc9f0; margin-right: 15px;">6 Hours</a>
+        <a href="?hours=12" class="{% if hours == 12 %}active{% endif %}" style="color: #4cc9f0; margin-right: 15px;">12 Hours</a>
+        <a href="?hours=24" class="{% if hours == 24 %}active{% endif %}" style="color: #4cc9f0; margin-right: 15px;">24 Hours</a>
+        <a href="?hours=48" class="{% if hours == 48 %}active{% endif %}" style="color: #4cc9f0; margin-right: 15px;">48 Hours</a>
+        <a href="?hours=168" class="{% if hours == 168 %}active{% endif %}" style="color: #4cc9f0;">7 Days</a>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="rideChart"></canvas>
+    </div>
+</div>
+
+<p style="margin-top: 20px;"><a href="/trends" style="color: #4cc9f0;">&larr; Back to Trends</a></p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const historyData = {{ history | tojson }};
+
+if (historyData && historyData.length > 0) {
+    const ctx = document.getElementById('rideChart').getContext('2d');
+
+    // Need Chart.js date adapter for time scale
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js';
+    script.onload = function() {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Wait Time (min)',
+                    data: historyData.map(h => ({
+                        x: new Date(h.timestamp),
+                        y: h.wait_time
+                    })),
+                    borderColor: '#4cc9f0',
+                    backgroundColor: 'rgba(76, 201, 240, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: {{ hours }} > 48 ? 'day' : 'hour',
+                            displayFormats: {
+                                hour: 'h:mm a',
+                                day: 'MMM d'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#aaa'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Wait Time (min)',
+                            color: '#aaa'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#aaa'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    };
+    document.head.appendChild(script);
+} else {
+    document.getElementById('rideChart').parentElement.innerHTML = '<p>No history data available for this time period.</p>';
+}
+</script>
+{% endblock %}

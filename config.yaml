@@ -34,6 +34,40 @@ parks:
     id: 8
     name: "Animal Kingdom"
 
+# Weather Settings (OpenWeatherMap)
+weather:
+  enabled: true
+  api_key: ""  # Set your OpenWeatherMap API key
+  refresh_interval: 1800  # 30 minutes
+  latitude: 28.3772       # Walt Disney World
+  longitude: -81.5707
+
+# Web Dashboard
+web:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+
+# Special Events (Fireworks & Parades)
+events:
+  fireworks:
+    enabled: true
+    duration: 240  # 4 minutes in seconds
+    # Schedule format: "HH:MM" in Eastern Time
+    schedule:
+      magic_kingdom: ["21:00"]      # Happily Ever After
+      epcot: ["21:00"]              # Luminous
+  parades:
+    enabled: true
+    duration: 120  # 2 minutes in seconds
+    schedule:
+      magic_kingdom: ["15:00"]      # Festival of Fantasy
+
+# Database for Historical Data
+database:
+  path: "data/waitimes.db"
+  retention_days: 30
+
 # Logging
 logging:
   level: INFO

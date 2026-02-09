@@ -1,6 +1,7 @@
 """Main display renderer for wait times."""
 
 import logging
+import time as time_module
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -11,6 +12,9 @@ from src.models.ride import Ride, WaitTimesData, ClosedPark
 from src.themes.colors import get_color_scheme, get_wait_color, ColorScheme
 from src.themes.fonts import get_font_manager, FontManager
 from src.themes.images import get_image_manager, ImageManager
+from src.api.weather import WeatherData
+from src.events.scheduler import EventScheduler, ScheduledEvent, EventType
+from src.events.animations import FireworksAnimation, ParadeAnimation, VideoPlayer
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +80,19 @@ class RideDisplay:
         self.transition_progress: float = 0.0
         self.prev_surface: Optional[pygame.Surface] = None
         self.next_surface: Optional[pygame.Surface] = None
+
+        # Weather data
+        self.weather_data: Optional[WeatherData] = None
+
+        # Event system
+        self.event_scheduler: Optional[EventScheduler] = None
+        self.active_event: Optional[ScheduledEvent] = None
+        self.fireworks_animation: Optional[FireworksAnimation] = None
+        self.parade_animation: Optional[ParadeAnimation] = None
+        self.event_start_time: float = 0.0
+        # Video players for events (keyed by park_slug + event_type)
+        self.event_videos: dict[str, VideoPlayer] = {}
+        self.current_video_player: Optional[VideoPlayer] = None
 
     def setup(self) -> bool:
         """Initialize pygame and create window."""
@@ -145,12 +162,124 @@ class RideDisplay:
         closed_count = len(data.closed_parks)
         logger.info(f"Display updated with {len(self.rides)} rides, {closed_count} closed parks")
 
+    def set_weather(self, weather: Optional[WeatherData]):
+        """Update the weather data for display."""
+        self.weather_data = weather
+        if weather:
+            logger.debug(f"Weather updated: {weather.temp_display}, {weather.condition}")
+
+    def set_event_scheduler(self, scheduler: EventScheduler, video_paths: Optional[dict] = None):
+        """Set the event scheduler for fireworks/parade events.
+
+        Args:
+            scheduler: EventScheduler instance
+            video_paths: Optional dict mapping event keys to video paths
+                         e.g. {"magic-kingdom_fireworks": "path/to/video.mp4"}
+        """
+        self.event_scheduler = scheduler
+        # Initialize fallback animations
+        self.fireworks_animation = FireworksAnimation(self.config.width, self.config.height)
+        self.parade_animation = ParadeAnimation(self.config.width, self.config.height)
+
+        # Load event videos if paths provided
+        if video_paths:
+            for key, path in video_paths.items():
+                player = VideoPlayer(self.config.width, self.config.height)
+                if player.load(path):
+                    self.event_videos[key] = player
+                    logger.info(f"Loaded event video: {key} -> {path}")
+                else:
+                    logger.warning(f"Failed to load event video: {path}")
+
+        logger.info(f"Event scheduler set with {len(scheduler.events)} scheduled events, {len(self.event_videos)} videos")
+
     def _get_data_age_minutes(self) -> int:
         """Get age of current data in minutes."""
         if self.last_data_update is None:
             return -1
         age = datetime.now() - self.last_data_update
         return int(age.total_seconds() / 60)
+
+    def _draw_weather_icon(self, surface: pygame.Surface, icon_code: str, x: int, y: int, size: int = 40):
+        """Draw a weather icon at the specified position.
+
+        Args:
+            surface: Surface to draw on
+            icon_code: OpenWeatherMap icon code (e.g., "01d", "10n")
+            x: Center x position
+            y: Center y position
+            size: Icon size in pixels
+        """
+        half = size // 2
+
+        if icon_code in ("01d",):  # Sunny
+            # Yellow sun with rays
+            pygame.draw.circle(surface, (255, 220, 50), (x, y), half - 5)
+            for angle in range(0, 360, 45):
+                import math
+                rad = math.radians(angle)
+                x1 = x + int((half - 8) * math.cos(rad))
+                y1 = y + int((half - 8) * math.sin(rad))
+                x2 = x + int((half + 2) * math.cos(rad))
+                y2 = y + int((half + 2) * math.sin(rad))
+                pygame.draw.line(surface, (255, 220, 50), (x1, y1), (x2, y2), 2)
+
+        elif icon_code in ("01n",):  # Clear night - moon
+            pygame.draw.circle(surface, (220, 220, 180), (x, y), half - 5)
+            pygame.draw.circle(surface, (0, 0, 0, 0), (x + 8, y - 5), half - 8)  # Crescent effect
+            # Draw crescent by overlapping circles
+            pygame.draw.circle(surface, (220, 220, 180), (x - 3, y), half - 5)
+            pygame.draw.circle(surface, (30, 30, 50), (x + 6, y - 3), half - 7)
+
+        elif icon_code in ("02d", "02n", "03d", "03n", "04d", "04n"):  # Cloudy
+            # Gray cloud shape
+            cloud_color = (180, 180, 190)
+            pygame.draw.circle(surface, cloud_color, (x - 8, y + 3), 12)
+            pygame.draw.circle(surface, cloud_color, (x + 5, y + 5), 10)
+            pygame.draw.circle(surface, cloud_color, (x, y - 3), 14)
+            pygame.draw.circle(surface, cloud_color, (x + 12, y), 11)
+
+        elif icon_code in ("09d", "09n", "10d", "10n"):  # Rain
+            # Cloud with rain drops
+            cloud_color = (150, 150, 160)
+            pygame.draw.circle(surface, cloud_color, (x - 6, y - 5), 10)
+            pygame.draw.circle(surface, cloud_color, (x + 6, y - 3), 9)
+            pygame.draw.circle(surface, cloud_color, (x, y - 10), 11)
+            # Rain drops
+            rain_color = (100, 150, 255)
+            for dx in [-8, 0, 8]:
+                pygame.draw.line(surface, rain_color, (x + dx, y + 8), (x + dx - 3, y + 16), 2)
+
+        elif icon_code in ("11d", "11n"):  # Storm/thunder
+            # Dark cloud with lightning
+            cloud_color = (100, 100, 110)
+            pygame.draw.circle(surface, cloud_color, (x - 6, y - 8), 10)
+            pygame.draw.circle(surface, cloud_color, (x + 6, y - 6), 9)
+            pygame.draw.circle(surface, cloud_color, (x, y - 12), 11)
+            # Lightning bolt
+            bolt_color = (255, 255, 100)
+            points = [(x, y - 2), (x - 5, y + 8), (x + 2, y + 6), (x - 3, y + 18)]
+            pygame.draw.lines(surface, bolt_color, False, points, 3)
+
+        elif icon_code in ("13d", "13n"):  # Snow
+            # Cloud with snowflakes
+            cloud_color = (200, 200, 210)
+            pygame.draw.circle(surface, cloud_color, (x - 6, y - 5), 10)
+            pygame.draw.circle(surface, cloud_color, (x + 6, y - 3), 9)
+            pygame.draw.circle(surface, cloud_color, (x, y - 10), 11)
+            # Snowflakes as small circles
+            snow_color = (255, 255, 255)
+            for dx, dy in [(-8, 10), (0, 14), (8, 10), (-4, 18), (4, 16)]:
+                pygame.draw.circle(surface, snow_color, (x + dx, y + dy), 2)
+
+        elif icon_code in ("50d", "50n"):  # Fog/mist
+            # Horizontal lines
+            fog_color = (180, 180, 180)
+            for dy in [-8, -2, 4, 10]:
+                pygame.draw.line(surface, fog_color, (x - 15, y + dy), (x + 15, y + dy), 3)
+        else:
+            # Default: question mark or simple indicator
+            pygame.draw.circle(surface, (150, 150, 150), (x, y), half - 5, 2)
 
     def _get_theme_for_ride(self, ride: Ride) -> str:
         """Get the theme identifier for a ride."""
@@ -216,10 +345,11 @@ class RideDisplay:
         # Get themed fonts
         font_ride_name = self._get_font(theme, 36)
         font_wait_time = self._get_font(theme, 80)
+        font_weather = self._get_font("classic", 24)
 
-        # Calculate bar height based on content (smaller without park name)
-        bar_height = 130
-        bar_y = self.config.height - bar_height - 10
+        # Calculate bar height based on content
+        bar_height = 140
+        bar_y = self.config.height - bar_height  # Flush with bottom
 
         # Create full-width semi-transparent bar at bottom
         bar_surface = pygame.Surface((self.config.width, bar_height), pygame.SRCALPHA)
@@ -234,25 +364,45 @@ class RideDisplay:
 
         surface.blit(bar_surface, (0, bar_y))
 
-        # Render wait time (large, centered, at top of bar)
+        # Weather section width (right side)
+        weather_width = 100 if self.weather_data else 0
+        content_width = self.config.width - weather_width - 40  # padding
+
+        # Render wait time (large, on left side of content area)
         wait_color = get_wait_color(ride.wait_category)
         wait_surface = font_wait_time.render(ride.display_wait, True, wait_color)
-        wait_x = (self.config.width - wait_surface.get_width()) // 2
-        wait_y = bar_y + 10
+        wait_x = 30
+        wait_y = bar_y + 5  # Tight to top
         surface.blit(wait_surface, (wait_x, wait_y))
 
-        # Render ride name (centered, below wait time with more spacing)
+        # Render ride name (left-justified, below wait time)
         name_surface = font_ride_name.render(ride.name, True, colors.text_primary)
-        # Truncate if too long
-        if name_surface.get_width() > self.config.width - 40:
-            # Try to fit by truncating
+        max_name_width = content_width - 20
+        if name_surface.get_width() > max_name_width:
             truncated = ride.name
-            while name_surface.get_width() > self.config.width - 40 and len(truncated) > 10:
+            while name_surface.get_width() > max_name_width and len(truncated) > 10:
                 truncated = truncated[:-4] + "..."
                 name_surface = font_ride_name.render(truncated, True, colors.text_primary)
-        name_x = (self.config.width - name_surface.get_width()) // 2
-        name_y = bar_y + 90
+        name_x = 30  # Left-justified
+        name_y = bar_y + 85  # More bottom margin
         surface.blit(name_surface, (name_x, name_y))
+
+        # Render weather (right side, stacked icon + temp)
+        if self.weather_data:
+            weather_x = self.config.width - weather_width - 10
+
+            # Weather icon
+            icon_center_x = weather_x + weather_width // 2
+            icon_center_y = bar_y + 45
+            self._draw_weather_icon(surface, self.weather_data.icon_code, icon_center_x, icon_center_y, 50)
+
+            # Temperature
+            temp_surface = font_weather.render(
+                self.weather_data.temp_display, True, colors.text_primary
+            )
+            temp_x = weather_x + (weather_width - temp_surface.get_width()) // 2
+            temp_y = bar_y + 95
+            surface.blit(temp_surface, (temp_x, temp_y))
 
         # Status indicator (stale data warning) - top right
         self._render_status_indicator(surface)
@@ -289,10 +439,11 @@ class RideDisplay:
         font_park_name = self._get_font(theme, 36)
         font_closed = self._get_font(theme, 80)
         font_opens = self._get_font(theme, 28)
+        font_weather = self._get_font("classic", 24)
 
         # Calculate bar height
         bar_height = 140
-        bar_y = self.config.height - bar_height - 10
+        bar_y = self.config.height - bar_height  # Flush with bottom
 
         # Create full-width semi-transparent bar at bottom
         bar_surface = pygame.Surface((self.config.width, bar_height), pygame.SRCALPHA)
@@ -307,26 +458,47 @@ class RideDisplay:
 
         surface.blit(bar_surface, (0, bar_y))
 
-        # Render CLOSED (large, centered, in red)
+        # Weather section width (right side)
+        weather_width = 100 if self.weather_data else 0
+        content_width = self.config.width - weather_width - 40
+
+        # Render CLOSED (large, on left side)
         closed_color = (231, 76, 60)  # Red
         closed_surface = font_closed.render("CLOSED", True, closed_color)
-        closed_x = (self.config.width - closed_surface.get_width()) // 2
+        closed_x = 30
         closed_y = bar_y + 10
         surface.blit(closed_surface, (closed_x, closed_y))
 
-        # Render park name (centered, below CLOSED)
+        # Render park name (left-justified)
         name_surface = font_park_name.render(park.name, True, colors.text_primary)
-        name_x = (self.config.width - name_surface.get_width()) // 2
+        name_x = 30  # Left-justified
         name_y = bar_y + 85
         surface.blit(name_surface, (name_x, name_y))
 
-        # Render opens at time (centered, below park name)
+        # Render opens at time (left-justified, below park name)
         if park.opens_at:
             opens_text = f"Opens at {park.opens_at}"
             opens_surface = font_opens.render(opens_text, True, colors.accent)
-            opens_x = (self.config.width - opens_surface.get_width()) // 2
+            opens_x = 30  # Left-justified
             opens_y = bar_y + 115
             surface.blit(opens_surface, (opens_x, opens_y))
+
+        # Render weather (right side, stacked icon + temp)
+        if self.weather_data:
+            weather_x = self.config.width - weather_width - 10
+
+            # Weather icon
+            icon_center_x = weather_x + weather_width // 2
+            icon_center_y = bar_y + 45
+            self._draw_weather_icon(surface, self.weather_data.icon_code, icon_center_x, icon_center_y, 50)
+
+            # Temperature
+            temp_surface = font_weather.render(
+                self.weather_data.temp_display, True, colors.text_primary
+            )
+            temp_x = weather_x + (weather_width - temp_surface.get_width()) // 2
+            temp_y = bar_y + 95
+            surface.blit(temp_surface, (temp_x, temp_y))
 
         # Status indicator
         self._render_status_indicator(surface)
@@ -428,6 +600,124 @@ class RideDisplay:
 
             surface.blit(badge_surface, (indicator_x - 30, indicator_y - 15))
 
+    def _render_event_screen(self, event: ScheduledEvent, elapsed_time: float) -> pygame.Surface:
+        """Render a special event screen (fireworks or parade)."""
+        colors = get_color_scheme("classic")
+
+        # Create surface
+        surface = pygame.Surface(
+            (self.config.width, self.config.height), pygame.SRCALPHA
+        )
+
+        # Check if we have a video for this event
+        video_key = f"{event.park_slug}_{event.event_type.value}"
+        video_player = self.event_videos.get(video_key)
+
+        if video_player and video_player.current_frame:
+            # Use video playback
+            video_player.render(surface)
+        else:
+            # Fall back to park image + particle animation
+            park_image = None
+            if self.image_manager:
+                park_image = self.image_manager.get_park_image(event.park_slug)
+
+            if park_image:
+                bg_image = pygame.transform.smoothscale(
+                    park_image, (self.config.width, self.config.height)
+                )
+                surface.blit(bg_image, (0, 0))
+            else:
+                bg_image = self._create_gradient_background("classic")
+                surface.blit(bg_image, (0, 0))
+
+            # Apply slight darkening for better animation visibility
+            dark_overlay = pygame.Surface(
+                (self.config.width, self.config.height), pygame.SRCALPHA
+            )
+            dark_overlay.fill((0, 0, 0, 80))
+            surface.blit(dark_overlay, (0, 0))
+
+            # Render the appropriate particle animation
+            if event.event_type == EventType.FIREWORKS and self.fireworks_animation:
+                self.fireworks_animation.render(surface)
+            elif event.event_type == EventType.PARADE and self.parade_animation:
+                self.parade_animation.render(surface)
+
+        # Get fonts
+        font_event = self._get_font("fantasy", 48)
+        font_park = self._get_font("classic", 32)
+
+        # Create bottom info bar
+        bar_height = 100
+        bar_y = self.config.height - bar_height  # Flush with bottom
+
+        bar_surface = pygame.Surface((self.config.width, bar_height), pygame.SRCALPHA)
+        bar_color = (*colors.background, 200)
+        bar_surface.fill(bar_color)
+
+        # Accent line
+        accent_color = (255, 215, 0) if event.event_type == EventType.FIREWORKS else (255, 105, 180)
+        pygame.draw.line(
+            bar_surface, (*accent_color, 255),
+            (0, 0), (self.config.width, 0), 3
+        )
+
+        surface.blit(bar_surface, (0, bar_y))
+
+        # Event name
+        if event.event_type == EventType.FIREWORKS:
+            event_text = "FIREWORKS"
+            event_color = (255, 215, 0)  # Gold
+        else:
+            event_text = "PARADE"
+            event_color = (255, 105, 180)  # Pink
+
+        event_surface = font_event.render(event_text, True, event_color)
+        event_x = 30
+        event_y = bar_y + 10
+        surface.blit(event_surface, (event_x, event_y))
+
+        # Park name
+        park_surface = font_park.render(event.park_name, True, colors.text_primary)
+        park_x = 30
+        park_y = bar_y + 60
+        surface.blit(park_surface, (park_x, park_y))
+
+        # Time remaining (right side)
+        time_remaining = event.duration_seconds - int(elapsed_time)
+        if time_remaining > 0:
+            mins = time_remaining // 60
+            secs = time_remaining % 60
+            time_text = f"{mins}:{secs:02d}"
+            font_time = self._get_font("classic", 36)
+            time_surface = font_time.render(time_text, True, colors.text_secondary)
+            time_x = self.config.width - time_surface.get_width() - 30
+            time_y = bar_y + 35
+            surface.blit(time_surface, (time_x, time_y))
+
+        # Weather (if available)
+        if self.weather_data:
+            weather_x = self.config.width - 120
+            font_weather_icon = pygame.font.Font(None, 36)
+            font_weather = self._get_font("classic", 22)
+
+            icon_surface = font_weather_icon.render(
+                self.weather_data.icon, True, colors.text_primary
+            )
+            icon_x = weather_x
+            icon_y = bar_y + 15
+            surface.blit(icon_surface, (icon_x, icon_y))
+
+            temp_surface = font_weather.render(
+                self.weather_data.temp_display, True, colors.text_primary
+            )
+            temp_x = weather_x
+            temp_y = bar_y + 55
+            surface.blit(temp_surface, (temp_x, temp_y))
+
+        return surface
+
     def _render_no_rides(self) -> pygame.Surface:
         """Render a message when no rides are available."""
         colors = get_color_scheme("classic")
@@ -513,6 +803,44 @@ class RideDisplay:
             age = datetime.now() - self.last_data_update
             self.data_is_stale = age.total_seconds() > 900
 
+        # Check for active events
+        if self.event_scheduler:
+            current_event = self.event_scheduler.get_active_event()
+
+            if current_event and not self.active_event:
+                # Event just started
+                self.active_event = current_event
+                self.event_start_time = time_module.time()
+                # Reset animations and video
+                if self.fireworks_animation:
+                    self.fireworks_animation.reset()
+                if self.parade_animation:
+                    self.parade_animation.reset()
+                # Reset video player if available
+                video_key = f"{current_event.park_slug}_{current_event.event_type.value}"
+                if video_key in self.event_videos:
+                    self.event_videos[video_key].reset()
+                logger.info(f"Event started: {current_event.event_type.value} at {current_event.park_name}")
+
+            elif not current_event and self.active_event:
+                # Event just ended
+                logger.info(f"Event ended: {self.active_event.event_type.value}")
+                self.active_event = None
+                self.event_start_time = 0.0
+
+        # Update animations if event is active
+        if self.active_event:
+            elapsed = time_module.time() - self.event_start_time
+            # Check for video first
+            video_key = f"{self.active_event.park_slug}_{self.active_event.event_type.value}"
+            if video_key in self.event_videos:
+                self.event_videos[video_key].update(dt, elapsed)
+            elif self.active_event.event_type == EventType.FIREWORKS and self.fireworks_animation:
+                self.fireworks_animation.update(dt, elapsed)
+            elif self.active_event.event_type == EventType.PARADE and self.parade_animation:
+                self.parade_animation.update(dt, elapsed)
+            return  # Skip normal ride rotation during events
+
         if self.transitioning:
             self._update_transition(dt)
         else:
@@ -527,7 +855,12 @@ class RideDisplay:
             return
 
         try:
-            if not self.display_items:
+            # Check if event is active
+            if self.active_event:
+                elapsed = time_module.time() - self.event_start_time
+                surface = self._render_event_screen(self.active_event, elapsed)
+                self.screen.blit(surface, (0, 0))
+            elif not self.display_items:
                 surface = self._render_no_rides()
                 self.screen.blit(surface, (0, 0))
             elif self.transitioning and self.prev_surface and self.next_surface:

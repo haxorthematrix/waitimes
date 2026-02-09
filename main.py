@@ -11,7 +11,11 @@ import yaml
 
 from src.utils.logging_config import setup_logging, get_logger
 from src.api.queue_times import QueueTimesClient
+from src.api.weather import WeatherClient
 from src.display.renderer import DisplayConfig, RideDisplay
+from src.data.database import get_database
+from src.web.server import run_server as run_web_server
+from src.events.scheduler import EventScheduler
 
 
 def load_config(config_path: str = "config.yaml") -> dict:
@@ -50,7 +54,7 @@ def print_text_summary(data):
     print("=" * 60 + "\n")
 
 
-def create_data_refresh_thread(client, display, interval, logger):
+def create_data_refresh_thread(client, display, interval, logger, database=None):
     """Create a background thread that periodically refreshes data.
 
     Args:
@@ -58,6 +62,7 @@ def create_data_refresh_thread(client, display, interval, logger):
         display: RideDisplay instance
         interval: Refresh interval in seconds
         logger: Logger instance
+        database: Optional WaitTimesDatabase instance for storing history
     """
 
     def refresh_loop():
@@ -78,6 +83,12 @@ def create_data_refresh_thread(client, display, interval, logger):
                         f"Wait times refreshed: {len(data.all_open_rides)} rides"
                     )
                     consecutive_failures = 0
+
+                    # Store in database if available
+                    if database:
+                        database.store_wait_times(data.all_open_rides)
+                        # Periodic cleanup
+                        database.cleanup_old_data()
                 else:
                     consecutive_failures += 1
                     logger.warning(
@@ -94,6 +105,34 @@ def create_data_refresh_thread(client, display, interval, logger):
                 logger.error(f"Error refreshing data: {e}")
 
     thread = threading.Thread(target=refresh_loop, daemon=True, name="DataRefresh")
+    return thread
+
+
+def create_weather_refresh_thread(weather_client, display, interval, logger):
+    """Create a background thread that periodically refreshes weather data.
+
+    Args:
+        weather_client: WeatherClient instance
+        display: RideDisplay instance
+        interval: Refresh interval in seconds
+        logger: Logger instance
+    """
+
+    def refresh_loop():
+        while display.running:
+            time.sleep(interval)
+            if not display.running:
+                break
+
+            try:
+                weather = weather_client.fetch_weather()
+                if weather:
+                    display.set_weather(weather)
+                    logger.debug(f"Weather refreshed: {weather.temp_display}")
+            except Exception as e:
+                logger.error(f"Error refreshing weather: {e}")
+
+    thread = threading.Thread(target=refresh_loop, daemon=True, name="WeatherRefresh")
     return thread
 
 
@@ -134,6 +173,11 @@ Examples:
         "--no-console-log",
         action="store_true",
         help="Disable console logging (log to file only)",
+    )
+    parser.add_argument(
+        "--test-event",
+        choices=["fireworks", "fireworks-epcot", "parade"],
+        help="Test event animation (fireworks, fireworks-epcot, or parade)",
     )
     args = parser.parse_args()
 
@@ -200,14 +244,119 @@ Examples:
         return 1
 
     try:
+        # Initialize database for historical data
+        db_config = config.get("database", {})
+        database = None
+        if db_config.get("path"):
+            database = get_database(
+                db_path=db_config.get("path", "data/waitimes.db"),
+                retention_days=db_config.get("retention_days", 30)
+            )
+            # Store initial data
+            database.store_wait_times(data.all_open_rides)
+            logger.info("Database initialized for historical data")
+
         # Start background data refresh thread
         refresh_interval = api_config.get("refresh_interval", 300)
         display.running = True  # Set before starting refresh thread
         refresh_thread = create_data_refresh_thread(
-            client, display, refresh_interval, logger
+            client, display, refresh_interval, logger, database
         )
         refresh_thread.start()
         logger.info(f"Data refresh thread started (interval: {refresh_interval}s)")
+
+        # Initialize weather if enabled
+        weather_config = config.get("weather", {})
+        if weather_config.get("enabled", False) and weather_config.get("api_key"):
+            weather_client = WeatherClient(
+                api_key=weather_config.get("api_key", ""),
+                latitude=weather_config.get("latitude", 28.3772),
+                longitude=weather_config.get("longitude", -81.5707),
+            )
+
+            # Fetch initial weather
+            weather = weather_client.fetch_weather()
+            if weather:
+                display.set_weather(weather)
+                logger.info(f"Initial weather: {weather.temp_display}, {weather.condition}")
+
+            # Start weather refresh thread
+            weather_interval = weather_config.get("refresh_interval", 1800)
+            weather_thread = create_weather_refresh_thread(
+                weather_client, display, weather_interval, logger
+            )
+            weather_thread.start()
+            logger.info(f"Weather refresh thread started (interval: {weather_interval}s)")
+        else:
+            logger.info("Weather display disabled (no API key configured)")
+
+        # Initialize event scheduler for fireworks/parades
+        events_config = config.get("events", {})
+
+        # Load video paths for events
+        video_paths = {}
+        videos_dir = Path("assets/videos")
+        video_mappings = {
+            "magic-kingdom_fireworks": "mk_fireworks.mp4",
+            "epcot_fireworks": "epcot_fireworks.mp4",
+            "magic-kingdom_parade": "mk_parade.mp4",
+        }
+        for key, filename in video_mappings.items():
+            video_path = videos_dir / filename
+            if video_path.exists():
+                video_paths[key] = str(video_path)
+                logger.info(f"Found event video: {key}")
+
+        # Test event mode - create immediate event
+        if args.test_event:
+            from datetime import datetime, timedelta
+            from src.events.scheduler import ScheduledEvent, EventType
+            test_time = datetime.now() - timedelta(seconds=1)  # Started 1 second ago
+
+            # Determine event type and park
+            if args.test_event == "fireworks-epcot":
+                event_type = EventType.FIREWORKS
+                park_name = "EPCOT"
+                park_slug = "epcot"
+                duration = 240
+            elif args.test_event == "fireworks":
+                event_type = EventType.FIREWORKS
+                park_name = "Magic Kingdom"
+                park_slug = "magic-kingdom"
+                duration = 240
+            else:  # parade
+                event_type = EventType.PARADE
+                park_name = "Magic Kingdom"
+                park_slug = "magic-kingdom"
+                duration = 120
+
+            test_event = ScheduledEvent(
+                event_type=event_type,
+                park_name=park_name,
+                park_slug=park_slug,
+                start_time=test_time.time(),
+                duration_seconds=duration,
+            )
+            # Create minimal scheduler with test event
+            test_scheduler = EventScheduler({})
+            test_scheduler.events = [test_event]
+            display.set_event_scheduler(test_scheduler, video_paths)
+            logger.info(f"TEST MODE: {args.test_event} animation active")
+        elif events_config.get("fireworks", {}).get("enabled") or events_config.get("parades", {}).get("enabled"):
+            event_scheduler = EventScheduler(events_config)
+            display.set_event_scheduler(event_scheduler, video_paths)
+            logger.info("Event scheduler initialized for fireworks/parades")
+        else:
+            logger.info("Special events disabled (no events configured)")
+
+        # Start web dashboard if enabled
+        web_config = config.get("web", {})
+        if web_config.get("enabled", False) and database:
+            run_web_server(
+                host=web_config.get("host", "0.0.0.0"),
+                port=web_config.get("port", 8080),
+                database=database
+            )
 
         # Run main display loop
         logger.info("Entering main display loop")

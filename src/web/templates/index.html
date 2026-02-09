@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Current Wait Times - Disney Wait Times{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Current Wait Times</h2>
+
+    {% if last_updated %}
+    <p class="last-updated">Last updated: {{ last_updated }}</p>
+    {% endif %}
+
+    {% for park_name, rides in waits_by_park.items() %}
+    <div class="park-section">
+        <h3>{{ park_name }}</h3>
+        <div class="ride-list">
+            {% for ride in rides %}
+            <div class="ride-item">
+                <div class="ride-name">
+                    <a href="/ride/{{ ride.ride_name | urlencode }}">{{ ride.ride_name }}</a>
+                </div>
+                <div class="wait-time {% if ride.wait_time <= 20 %}wait-green{% elif ride.wait_time <= 45 %}wait-yellow{% elif ride.wait_time <= 75 %}wait-orange{% else %}wait-red{% endif %}">
+                    {{ ride.wait_time }} min
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <p>No wait time data available. Data will appear after the display collects some history.</p>
+    {% endfor %}
+</div>
+{% endblock %}

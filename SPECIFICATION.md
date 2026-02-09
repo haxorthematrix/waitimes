@@ -18,14 +18,20 @@ A dedicated display application that shows real-time wait times for Walt Disney 
 - [x] Phase 2: Display Engine (pygame rendering, rotation, crossfade transitions)
 - [x] Phase 3: Theming (10 custom fonts, color schemes, image management)
 - [x] Phase 4: Polish & Error Handling (logging, stale data warnings, graceful degradation)
+- [x] Phase 5: Pi Deployment (systemd auto-start, screen blanking disabled)
+- [x] Phase 6: Weather integration (OpenWeatherMap API, pygame-drawn icons)
+- [x] Phase 7: Web dashboard with historical wait time trends (Flask, SQLite)
+- [x] Phase 8: Special events (fireworks & parade video playback with Sora-generated videos)
 - [x] Ride mappings for 60+ attractions across all 4 parks
 - [x] DALL-E 3 image generation (68 images: 64 rides + 4 parks)
+- [x] Sora AI video generation (3 videos: MK fireworks, EPCOT fireworks, MK parade)
 - [x] Closed park display with park-specific images
 - [x] Full-width bottom bar layout (clean, minimal overlay)
+- [x] Test mode for simulating closed parks and events (--test-event flag)
 
-### Pending
-- [ ] Phase 5: Pi Deployment
-- [ ] Phase 6: Weather integration, wait time trends
+### Future Enhancements
+- [ ] Additional event videos for other parks/events
+- [ ] Enhanced web dashboard with more visualizations
 
 ---
 
@@ -48,19 +54,18 @@ A dedicated display application that shows real-time wait times for Walt Disney 
 |                                                                       |
 |                                                                       |
 +=======================================================================+
-|                           25 min                                      |
-|                        [Wait Time - Large, Centered]                  |
-|                                                                       |
-|                       SPACE MOUNTAIN                                  |
-|                    [Ride Name - Themed Font]                          |
+|                                                           ☀️          |
+|              25 min                  SPACE MOUNTAIN      78°F         |
+|           [Wait Time]                 [Ride Name]      [Weather]      |
 +=======================================================================+
 ```
 
 **Layout Details:**
 - Full-width semi-transparent bar at bottom (130px height)
 - Accent line at top of bar (3px, theme-colored)
-- Wait time: 80px font, centered, color-coded by wait length
-- Ride name: 36px themed font, centered below wait time
+- Left side: Wait time (80px font, color-coded by wait length)
+- Center: Ride name (36px themed font)
+- Right side: Weather icon + temperature stacked vertically
 - No navigation dots (clean, minimal design)
 - Stale data warning badge in top-right when data is >10 minutes old
 
@@ -69,6 +74,10 @@ A dedicated display application that shows real-time wait times for Walt Disney 
 - Park name displayed below
 - Opening time shown if available
 - Park-specific background image (castle, Spaceship Earth, etc.)
+
+**Special Event Overlays:**
+- Fireworks: 3-5 minute animation with park image, overrides ride rotation
+- Parades: 2 minute animation at parade start time, overrides ride rotation
 
 ---
 
@@ -196,6 +205,109 @@ Avatar Flight of Passage, Na'vi River Journey, Expedition Everest, Kilimanjaro S
 
 ---
 
+## Weather Integration
+
+### Data Source
+- **API:** OpenWeatherMap (free tier) or National Weather Service
+- **Location:** Walt Disney World (28.3772° N, 81.5707° W)
+- **Refresh:** Every 30 minutes
+
+### Display
+- Weather condition icon (sun, clouds, rain, etc.)
+- Current temperature in Fahrenheit
+- Positioned in bottom-right of overlay bar
+- Stacked vertically: icon on top, temperature below
+
+### Weather Icons (Pygame-drawn primitives)
+| Condition | Icon Description |
+|-----------|------------------|
+| Clear/Sunny (01d) | Yellow sun with rays |
+| Clear Night (01n) | Crescent moon |
+| Cloudy (02d-04n) | Gray overlapping circles |
+| Rain (09d, 10d/n) | Cloud with blue rain drops |
+| Thunderstorm (11d/n) | Dark cloud with lightning bolt |
+| Snow (13d/n) | Cloud with white snowflakes |
+| Fog/Mist (50d/n) | Horizontal gray lines |
+
+---
+
+## Special Events
+
+### Fireworks Shows
+- **Duration:** 4 minutes (configurable)
+- **Trigger:** Scheduled times from config (e.g., 20:00, 21:00)
+- **Display:** Full-screen video playback (Sora AI-generated)
+- **Behavior:** Overrides normal ride rotation during show
+- **Parks:** Magic Kingdom (Happily Ever After), EPCOT (Luminous)
+- **Fallback:** Particle animation if video unavailable
+
+### Parades
+- **Duration:** 2 minutes at start time
+- **Trigger:** Scheduled parade start times from config
+- **Display:** Full-screen video playback (Sora AI-generated)
+- **Behavior:** Brief interruption of ride rotation
+- **Parks:** Magic Kingdom (Festival of Fantasy)
+- **Fallback:** Particle animation if video unavailable
+
+### Event Videos (Sora AI-generated)
+```
+assets/videos/
+├── mk_fireworks.mp4      # Magic Kingdom fireworks (fairy tale castle)
+├── epcot_fireworks.mp4   # EPCOT fireworks (geodesic sphere)
+└── mk_parade.mp4         # Magic Kingdom parade (Main Street floats)
+```
+
+### Video Playback
+- **Library:** OpenCV (cv2) with pygame surface rendering
+- **Looping:** Videos loop continuously during event duration
+- **Resolution:** Scaled to display resolution (800x480)
+
+### Event Schedule
+- Configured in config.yaml events section
+- Typical fireworks: 8:00 PM or 9:00 PM (varies by season)
+- Typical parades: 2:00 PM, 3:00 PM (varies by day)
+
+### Test Mode
+```bash
+python main.py --test-event fireworks       # Test MK fireworks
+python main.py --test-event fireworks-epcot # Test EPCOT fireworks
+python main.py --test-event parade          # Test MK parade
+```
+
+---
+
+## Web Dashboard
+
+### Overview
+Local web server providing historical wait time data and trends.
+
+### Features
+- **Current Wait Times:** Real-time view of all park wait times
+- **Historical Trends:** Graphs showing wait times over time
+- **Ride Statistics:** Average, min, max wait times per ride
+- **Park Comparison:** Compare wait times across parks
+- **Data Export:** Download historical data as CSV
+
+### Technical Details
+- **Framework:** Flask or FastAPI
+- **Database:** SQLite for historical data storage
+- **Port:** 8080 (configurable)
+- **Access:** http://pi-ip:8080
+
+### Data Storage
+- Store wait time snapshots every 10 minutes
+- Retain 30 days of historical data
+- Automatic cleanup of old records
+
+### Dashboard Pages
+1. **/** - Overview with current wait times
+2. **/trends** - Historical trend graphs
+3. **/ride/{name}** - Individual ride statistics
+4. **/api/waits** - JSON API for current wait times
+5. **/api/history** - JSON API for historical data
+
+---
+
 ## Technical Architecture
 
 ### Project Structure
@@ -214,36 +326,61 @@ waitimes/
 │
 ├── src/
 │   ├── api/
-│   │   └── queue_times.py    # API client with caching
+│   │   ├── queue_times.py    # Wait times API client with caching
+│   │   └── weather.py        # Weather API client (OpenWeatherMap)
 │   │
 │   ├── display/
 │   │   └── renderer.py       # Full-screen display with bottom bar overlay
 │   │
+│   ├── events/
+│   │   ├── __init__.py       # Event module exports
+│   │   ├── scheduler.py      # Event scheduling (fireworks, parades)
+│   │   └── animations.py     # Fireworks, parade animations, VideoPlayer
+│   │
 │   ├── models/
-│   │   └── ride.py           # Ride, Park, ClosedPark, WaitTimesData
+│   │   ├── ride.py           # Ride, Park, ClosedPark, WaitTimesData
+│   │   └── events.py         # SpecialEvent, Fireworks, Parade models
 │   │
 │   ├── themes/
 │   │   ├── fonts.py          # Font mappings (60+ ride-to-theme mappings)
 │   │   ├── colors.py         # Color schemes (12 themes)
 │   │   └── images.py         # Image loading with cycling + park images
 │   │
+│   ├── web/
+│   │   ├── server.py         # Flask/FastAPI web server
+│   │   ├── routes.py         # API endpoints and page routes
+│   │   └── templates/        # HTML templates for dashboard
+│   │       ├── index.html
+│   │       ├── trends.html
+│   │       └── ride.html
+│   │
+│   ├── data/
+│   │   └── database.py       # SQLite database for historical data
+│   │
 │   └── utils/
 │       └── logging_config.py # Rotating file logger
 │
 ├── assets/
 │   ├── fonts/                # 10 TTF font files
-│   └── images/               # 68 DALL-E generated images (64 rides + 4 parks)
+│   ├── images/               # 68 DALL-E generated images (64 rides + 4 parks)
+│   └── videos/               # 3 Sora AI-generated event videos
+│
+├── data/
+│   └── waitimes.db           # SQLite database (historical data)
 │
 └── venv/                     # Python virtual environment
 ```
 
 ### Dependencies
 ```
-pygame>=2.5.0          # Display rendering
-requests>=2.31.0       # API calls
-pyyaml>=6.0            # Configuration
-Pillow>=10.0.0         # Image processing
-openai>=1.0.0          # DALL-E image generation
+pygame>=2.5.0              # Display rendering
+requests>=2.31.0           # API calls
+pyyaml>=6.0                # Configuration
+Pillow>=10.0.0             # Image processing
+openai>=1.0.0              # DALL-E/Sora image/video generation
+flask>=3.0.0               # Web dashboard server
+sqlite3                    # Historical data storage (built-in)
+opencv-python-headless>=4.8.0  # Video playback for events
 ```
 
 ---
@@ -253,7 +390,7 @@ openai>=1.0.0          # DALL-E image generation
 ### config.yaml
 ```yaml
 api:
-  refresh_interval: 300  # 5 minutes
+  refresh_interval: 600  # 10 minutes
   retry_delay: 30
   max_retries: 3
   timeout: 10
@@ -273,6 +410,30 @@ parks:
   - epcot
   - hollywood_studios
   - animal_kingdom
+
+weather:
+  enabled: true
+  api_key: "your-openweathermap-api-key"
+  refresh_interval: 1800  # 30 minutes
+  latitude: 28.3772
+  longitude: -81.5707
+
+web:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+
+events:
+  fireworks:
+    enabled: true
+    duration: 240  # 4 minutes (seconds)
+  parades:
+    enabled: true
+    duration: 120  # 2 minutes (seconds)
+
+database:
+  path: "data/waitimes.db"
+  retention_days: 30
 
 logging:
   level: INFO
@@ -339,15 +500,17 @@ python main.py --log-level DEBUG  # Override log level
 
 ---
 
-## Future Enhancements (Phase 6+)
+## Future Enhancements (Phase 9+)
 
-- **Weather integration:** Show current weather at parks
-- **Wait time trends:** Historical graphs
 - **Multi-resort support:** Disneyland, international parks
 - **Lightning Lane integration:** Show LL return times
-- **Special events:** Overlay for park events (fireworks, parades)
+- **Mobile app:** Companion app for remote monitoring
+- **Voice announcements:** Audio alerts for favorite rides
+- **Predictive wait times:** ML-based wait time predictions
+- **Additional event videos:** Hollywood Studios, Animal Kingdom events
+- **Enhanced web dashboard:** More visualizations, ride comparisons
 
 ---
 
-*Specification Version: 3.0*
+*Specification Version: 5.0*
 *Last Updated: 2026-02-09*
