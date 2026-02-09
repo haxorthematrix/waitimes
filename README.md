@@ -7,11 +7,13 @@ A pygame-based display application that shows real-time Walt Disney World wait t
 ## Features
 
 - **Real-time wait times** from queue-times.com (5-minute refresh)
-- **Full-screen ride images** with semi-transparent text overlay
+- **Full-screen ride images** with clean bottom bar overlay
+- **68 AI-generated images** (64 rides + 4 parks) via DALL-E 3
 - **10 themed fonts** matched to ride aesthetics (sci-fi, spooky, pirate, etc.)
 - **12 color schemes** for different ride themes
 - **Smooth crossfade transitions** between rides
 - **60+ ride mappings** across all 4 WDW parks
+- **Closed park display** with park-specific imagery when parks aren't operating
 - **Graceful error handling** with stale data warnings
 - **Fully automated** - set it and forget it
 
@@ -143,6 +145,19 @@ cp my_space_mountain_photo.png assets/images/space_mountain/2.png
 | Na'vi River Journey | `navi_river` |
 | Expedition Everest | `everest` |
 | Kilimanjaro Safaris | `kilimanjaro` |
+| Zootopia | `zootopia` |
+| Wildlife Express | `wildlife_express` |
+| Walt Disney World Railroad | `railroad` |
+| Prince Charming Regal Carrousel | `carrousel` |
+
+**Park Images (for closed display):**
+
+| Park | Folder Name |
+|------|-------------|
+| Magic Kingdom | `parks/magic_kingdom` |
+| EPCOT | `parks/epcot` |
+| Hollywood Studios | `parks/hollywood_studios` |
+| Animal Kingdom | `parks/animal_kingdom` |
 
 See `src/themes/images.py` for the complete mapping.
 
@@ -152,11 +167,13 @@ If you have an OpenAI API key, you can generate images:
 
 ```bash
 export OPENAI_API_KEY='your-api-key'
-python generate_images.py        # Batch 1: 20 main rides
-python generate_images_batch2.py # Batch 2: 30 additional rides
+python generate_images.py         # Batch 1: 20 main rides
+python generate_images_batch2.py  # Batch 2: 30 additional rides
+python generate_images_batch3.py  # Batch 3: 14 rides + character meets
+python generate_park_images.py    # Park images for closed display
 ```
 
-**Note:** Due to rate limits, image generation takes ~2 minutes per image.
+**Note:** Due to rate limits, image generation takes ~2 minutes per image. All 68 images are already included in the repository.
 
 ## Raspberry Pi Deployment
 
@@ -230,6 +247,16 @@ Options:
   --log-level LEVEL  Set log level: DEBUG, INFO, WARNING, ERROR
   --no-console-log   Disable console logging (file only)
 ```
+
+## Closed Park Display
+
+When a park is not operating (no rides reporting wait times), the display shows:
+- Park-specific background image (e.g., Cinderella Castle for Magic Kingdom)
+- "CLOSED" in large red text
+- Park name
+- Opening time (if available)
+
+This provides a nice visual even during off-hours instead of a blank screen.
 
 ## Logs
 

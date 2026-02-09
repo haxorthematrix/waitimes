@@ -19,13 +19,13 @@ A dedicated display application that shows real-time wait times for Walt Disney 
 - [x] Phase 3: Theming (10 custom fonts, color schemes, image management)
 - [x] Phase 4: Polish & Error Handling (logging, stale data warnings, graceful degradation)
 - [x] Ride mappings for 60+ attractions across all 4 parks
-
-### In Progress
-- [ ] DALL-E 3 image generation (20/51 rides complete)
+- [x] DALL-E 3 image generation (68 images: 64 rides + 4 parks)
+- [x] Closed park display with park-specific images
+- [x] Full-width bottom bar layout (clean, minimal overlay)
 
 ### Pending
 - [ ] Phase 5: Pi Deployment
-- [ ] Phase 6: Park hours awareness / nighttime mode
+- [ ] Phase 6: Weather integration, wait time trends
 
 ---
 
@@ -36,29 +36,39 @@ A dedicated display application that shows real-time wait times for Walt Disney 
 - **Aspect Ratio:** 5:3
 - **Orientation:** Landscape
 
-### Layout Design (Full-Screen with Overlay)
+### Layout Design (Full-Screen with Bottom Bar)
 
 ```
 +-----------------------------------------------------------------------+
 |                                                                       |
+|                                                                       |
 |                     [Full-Screen Ride Image]                          |
 |                         (800 x 480)                                   |
 |                                                                       |
-|   +---------------------------------------------------------------+   |
-|   |                                                               |   |
-|   |   SPACE MOUNTAIN                          [Themed Font]       |   |
-|   |                                                               |   |
-|   |   25 min                                  [Wait Time]         |   |
-|   |                                                               |   |
-|   |   Magic Kingdom                           [Park Name]         |   |
-|   |                                                               |   |
-|   +---------------------------------------------------------------+   |
-|                          [Semi-transparent overlay box]               |
 |                                                                       |
-|                    o o o * o o o o o o o o                            |
-|                      [Ride indicator dots]                            |
-+-----------------------------------------------------------------------+
+|                                                                       |
++=======================================================================+
+|                           25 min                                      |
+|                        [Wait Time - Large, Centered]                  |
+|                                                                       |
+|                       SPACE MOUNTAIN                                  |
+|                    [Ride Name - Themed Font]                          |
++=======================================================================+
 ```
+
+**Layout Details:**
+- Full-width semi-transparent bar at bottom (130px height)
+- Accent line at top of bar (3px, theme-colored)
+- Wait time: 80px font, centered, color-coded by wait length
+- Ride name: 36px themed font, centered below wait time
+- No navigation dots (clean, minimal design)
+- Stale data warning badge in top-right when data is >10 minutes old
+
+**Closed Park Display:**
+- Shows "CLOSED" in red (80px) instead of wait time
+- Park name displayed below
+- Opening time shown if available
+- Park-specific background image (castle, Spaceship Earth, etc.)
 
 ---
 
@@ -134,7 +144,13 @@ assets/images/
 ├── space_mountain/1.png
 ├── haunted_mansion/1.png
 ├── tower_terror/1.png
-└── ... (one folder per ride)
+├── ... (64 ride folders)
+│
+├── parks/                    # Park images for closed display
+│   ├── magic_kingdom/1.png
+│   ├── epcot/1.png
+│   ├── hollywood_studios/1.png
+│   └── animal_kingdom/1.png
 ```
 
 ### Covered Attractions (60+ rides)
@@ -185,35 +201,40 @@ Avatar Flight of Passage, Na'vi River Journey, Expedition Everest, Kilimanjaro S
 ### Project Structure
 ```
 waitimes/
-├── main.py                 # Application entry point
-├── requirements.txt        # Python dependencies
-├── config.yaml            # Configuration settings
-├── SPECIFICATION.md       # This document
-├── generate_images.py     # DALL-E image generation script
+├── main.py                    # Application entry point
+├── requirements.txt           # Python dependencies
+├── config.yaml               # Configuration settings
+├── SPECIFICATION.md          # This document
+├── README.md                 # Installation and usage guide
+│
+├── generate_images.py        # DALL-E batch 1 (20 main rides)
+├── generate_images_batch2.py # DALL-E batch 2 (30 rides)
+├── generate_images_batch3.py # DALL-E batch 3 (14 rides + character meets)
+├── generate_park_images.py   # DALL-E park images (4 parks)
 │
 ├── src/
 │   ├── api/
-│   │   └── queue_times.py  # API client with caching
+│   │   └── queue_times.py    # API client with caching
 │   │
 │   ├── display/
-│   │   └── renderer.py     # Full-screen display with overlay
+│   │   └── renderer.py       # Full-screen display with bottom bar overlay
 │   │
 │   ├── models/
-│   │   └── ride.py         # Ride, Park, WaitTimesData dataclasses
+│   │   └── ride.py           # Ride, Park, ClosedPark, WaitTimesData
 │   │
 │   ├── themes/
-│   │   ├── fonts.py        # Font mappings (60+ ride-to-theme mappings)
-│   │   ├── colors.py       # Color schemes (12 themes)
-│   │   └── images.py       # Image loading with cycling
+│   │   ├── fonts.py          # Font mappings (60+ ride-to-theme mappings)
+│   │   ├── colors.py         # Color schemes (12 themes)
+│   │   └── images.py         # Image loading with cycling + park images
 │   │
 │   └── utils/
-│       └── logging_config.py  # Rotating file logger
+│       └── logging_config.py # Rotating file logger
 │
 ├── assets/
-│   ├── fonts/              # 10 TTF font files
-│   └── images/             # DALL-E generated ride images
+│   ├── fonts/                # 10 TTF font files
+│   └── images/               # 68 DALL-E generated images (64 rides + 4 parks)
 │
-└── venv/                   # Python virtual environment
+└── venv/                     # Python virtual environment
 ```
 
 ### Dependencies
@@ -320,13 +341,13 @@ python main.py --log-level DEBUG  # Override log level
 
 ## Future Enhancements (Phase 6+)
 
-- **Park hours awareness:** Show "Park Closed" when appropriate
-- **Nighttime mode:** Display nighttime castle/park imagery when closed
 - **Weather integration:** Show current weather at parks
 - **Wait time trends:** Historical graphs
 - **Multi-resort support:** Disneyland, international parks
+- **Lightning Lane integration:** Show LL return times
+- **Special events:** Overlay for park events (fireworks, parades)
 
 ---
 
-*Specification Version: 2.0*
-*Last Updated: 2026-02-08*
+*Specification Version: 3.0*
+*Last Updated: 2026-02-09*

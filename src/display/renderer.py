@@ -200,7 +200,7 @@ class RideDisplay:
         return surface
 
     def _render_ride_card(self, ride: Ride) -> pygame.Surface:
-        """Render a single ride card with full-screen image and text overlay."""
+        """Render a single ride card with full-screen image and bottom bar overlay."""
         theme = self._get_theme_for_ride(ride)
         colors = get_color_scheme(theme)
 
@@ -213,75 +213,46 @@ class RideDisplay:
         bg_image = self._get_fullscreen_image(ride.name, theme)
         surface.blit(bg_image, (0, 0))
 
-        # Add slight darkening overlay for better text readability
-        dark_overlay = pygame.Surface(
-            (self.config.width, self.config.height), pygame.SRCALPHA
-        )
-        dark_overlay.fill((0, 0, 0, 80))
-        surface.blit(dark_overlay, (0, 0))
-
         # Get themed fonts
-        font_ride_name = self._get_font(theme, 42)
-        font_wait_time = self._get_font(theme, 72)
-        font_park_name = self._get_font(theme, 28)
+        font_ride_name = self._get_font(theme, 36)
+        font_wait_time = self._get_font(theme, 80)
 
-        # Calculate text dimensions for the overlay box
-        name_lines = self._wrap_text(ride.name, font_ride_name, 400)
+        # Calculate bar height based on content (smaller without park name)
+        bar_height = 130
+        bar_y = self.config.height - bar_height - 10
 
-        # Measure text heights
-        name_height = len(name_lines) * 44
-        wait_height = 75
-        park_height = 32
-        total_text_height = name_height + wait_height + park_height + 30  # padding between
+        # Create full-width semi-transparent bar at bottom
+        bar_surface = pygame.Surface((self.config.width, bar_height), pygame.SRCALPHA)
+        bar_color = (*colors.background, BOX_ALPHA)
+        bar_surface.fill(bar_color)
 
-        # Create semi-transparent overlay box (bottom-left positioned)
-        box_width = 450
-        box_height = total_text_height + BOX_PADDING * 2
-        box_x = BOX_MARGIN
-        box_y = self.config.height - BOX_MARGIN - box_height - 30  # room for dots
-
-        # Draw box with rounded corners
-        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-        box_color = (*colors.background, BOX_ALPHA)
-        pygame.draw.rect(
-            box_surface, box_color,
-            (0, 0, box_width, box_height),
-            border_radius=16
+        # Add accent line at top of bar
+        pygame.draw.line(
+            bar_surface, (*colors.accent, 255),
+            (0, 0), (self.config.width, 0), 3
         )
 
-        # Add accent border
-        pygame.draw.rect(
-            box_surface, (*colors.accent, 255),
-            (0, 0, box_width, box_height),
-            width=2, border_radius=16
-        )
+        surface.blit(bar_surface, (0, bar_y))
 
-        surface.blit(box_surface, (box_x, box_y))
-
-        # Render text inside the box
-        text_x = box_x + BOX_PADDING
-        text_y = box_y + BOX_PADDING
-
-        # Ride name
-        for line in name_lines:
-            name_surface = font_ride_name.render(line, True, colors.text_primary)
-            surface.blit(name_surface, (text_x, text_y))
-            text_y += 44
-
-        text_y += 10  # spacing
-
-        # Wait time (large, colored)
+        # Render wait time (large, centered, at top of bar)
         wait_color = get_wait_color(ride.wait_category)
         wait_surface = font_wait_time.render(ride.display_wait, True, wait_color)
-        surface.blit(wait_surface, (text_x, text_y))
-        text_y += wait_height
+        wait_x = (self.config.width - wait_surface.get_width()) // 2
+        wait_y = bar_y + 10
+        surface.blit(wait_surface, (wait_x, wait_y))
 
-        # Park name
-        park_surface = font_park_name.render(ride.park_name, True, colors.accent)
-        surface.blit(park_surface, (text_x, text_y))
-
-        # Navigation dots at bottom center
-        self._render_dots(surface, colors)
+        # Render ride name (centered, below wait time with more spacing)
+        name_surface = font_ride_name.render(ride.name, True, colors.text_primary)
+        # Truncate if too long
+        if name_surface.get_width() > self.config.width - 40:
+            # Try to fit by truncating
+            truncated = ride.name
+            while name_surface.get_width() > self.config.width - 40 and len(truncated) > 10:
+                truncated = truncated[:-4] + "..."
+                name_surface = font_ride_name.render(truncated, True, colors.text_primary)
+        name_x = (self.config.width - name_surface.get_width()) // 2
+        name_y = bar_y + 90
+        surface.blit(name_surface, (name_x, name_y))
 
         # Status indicator (stale data warning) - top right
         self._render_status_indicator(surface)
@@ -289,7 +260,7 @@ class RideDisplay:
         return surface
 
     def _render_closed_park_card(self, park: ClosedPark) -> pygame.Surface:
-        """Render a closed park card with full-screen image and closed message."""
+        """Render a closed park card with full-screen image and bottom bar."""
         theme = "classic"  # Use classic theme for parks
         colors = get_color_scheme(theme)
 
@@ -314,61 +285,48 @@ class RideDisplay:
             bg_image = self._create_gradient_background(theme)
             surface.blit(bg_image, (0, 0))
 
-        # Add darkening overlay for text readability
-        dark_overlay = pygame.Surface(
-            (self.config.width, self.config.height), pygame.SRCALPHA
-        )
-        dark_overlay.fill((0, 0, 0, 120))
-        surface.blit(dark_overlay, (0, 0))
-
         # Get fonts
-        font_park_name = self._get_font(theme, 48)
-        font_closed = self._get_font(theme, 64)
-        font_opens = self._get_font(theme, 32)
+        font_park_name = self._get_font(theme, 36)
+        font_closed = self._get_font(theme, 80)
+        font_opens = self._get_font(theme, 28)
 
-        # Create semi-transparent overlay box
-        box_width = 500
-        box_height = 200
-        box_x = BOX_MARGIN
-        box_y = self.config.height - BOX_MARGIN - box_height - 30
+        # Calculate bar height
+        bar_height = 140
+        bar_y = self.config.height - bar_height - 10
 
-        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-        box_color = (*colors.background, BOX_ALPHA)
-        pygame.draw.rect(
-            box_surface, box_color,
-            (0, 0, box_width, box_height),
-            border_radius=16
+        # Create full-width semi-transparent bar at bottom
+        bar_surface = pygame.Surface((self.config.width, bar_height), pygame.SRCALPHA)
+        bar_color = (*colors.background, BOX_ALPHA)
+        bar_surface.fill(bar_color)
+
+        # Add accent line at top of bar
+        pygame.draw.line(
+            bar_surface, (*colors.accent, 255),
+            (0, 0), (self.config.width, 0), 3
         )
-        pygame.draw.rect(
-            box_surface, (*colors.accent, 255),
-            (0, 0, box_width, box_height),
-            width=2, border_radius=16
-        )
-        surface.blit(box_surface, (box_x, box_y))
 
-        # Render text
-        text_x = box_x + BOX_PADDING
-        text_y = box_y + BOX_PADDING
+        surface.blit(bar_surface, (0, bar_y))
 
-        # Park name
-        name_surface = font_park_name.render(park.name, True, colors.text_primary)
-        surface.blit(name_surface, (text_x, text_y))
-        text_y += 55
-
-        # CLOSED label (in red)
+        # Render CLOSED (large, centered, in red)
         closed_color = (231, 76, 60)  # Red
         closed_surface = font_closed.render("CLOSED", True, closed_color)
-        surface.blit(closed_surface, (text_x, text_y))
-        text_y += 70
+        closed_x = (self.config.width - closed_surface.get_width()) // 2
+        closed_y = bar_y + 10
+        surface.blit(closed_surface, (closed_x, closed_y))
 
-        # Opens at time
+        # Render park name (centered, below CLOSED)
+        name_surface = font_park_name.render(park.name, True, colors.text_primary)
+        name_x = (self.config.width - name_surface.get_width()) // 2
+        name_y = bar_y + 85
+        surface.blit(name_surface, (name_x, name_y))
+
+        # Render opens at time (centered, below park name)
         if park.opens_at:
             opens_text = f"Opens at {park.opens_at}"
             opens_surface = font_opens.render(opens_text, True, colors.accent)
-            surface.blit(opens_surface, (text_x, text_y))
-
-        # Navigation dots
-        self._render_dots(surface, colors)
+            opens_x = (self.config.width - opens_surface.get_width()) // 2
+            opens_y = bar_y + 115
+            surface.blit(opens_surface, (opens_x, opens_y))
 
         # Status indicator
         self._render_status_indicator(surface)
