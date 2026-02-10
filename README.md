@@ -2,7 +2,14 @@
 
 A pygame-based display application that shows real-time Walt Disney World wait times on a Raspberry Pi with a 7" touchscreen. Features themed fonts, color schemes, and AI-generated ride images.
 
-![Display Example](docs/example.png)
+## Screenshots
+
+| Low Wait (Green) | High Wait (Red) | Medium Wait (Yellow) |
+|:---:|:---:|:---:|
+| ![Gran Fiesta Tour](docs/screenshot_1.png) | ![TRON Lightcycle](docs/screenshot_2.png) | ![Winnie the Pooh](docs/screenshot_3.png) |
+| Gran Fiesta Tour - 5 min | TRON Lightcycle - 105 min | Winnie the Pooh - 35 min |
+
+*Weather icons, themed fonts, and color-coded wait times update automatically.*
 
 ## Features
 

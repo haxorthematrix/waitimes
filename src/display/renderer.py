@@ -911,8 +911,27 @@ class RideDisplay:
                     return False
                 elif event.key == pygame.K_SPACE:
                     self._start_transition()
+                elif event.key == pygame.K_s:
+                    self._save_screenshot()
 
         return True
+
+    def _save_screenshot(self):
+        """Save a screenshot of the current display."""
+        from pathlib import Path
+        docs_dir = Path("docs")
+        docs_dir.mkdir(exist_ok=True)
+
+        # Find next available filename
+        i = 1
+        while True:
+            filename = docs_dir / f"screenshot_{i}.png"
+            if not filename.exists():
+                break
+            i += 1
+
+        pygame.image.save(self.screen, str(filename))
+        logger.info(f"Screenshot saved: {filename}")
 
     def run_loop(self, data: WaitTimesData, refresh_callback=None):
         """Main display loop."""
