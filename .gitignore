@@ -32,3 +32,6 @@ run_batch2_when_ready.sh
 
 # Database files
 data/*.db
+
+# Claude Code settings (may contain API keys in command history)
+.claude/

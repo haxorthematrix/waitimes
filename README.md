@@ -6,7 +6,7 @@ A pygame-based display application that shows real-time Walt Disney World wait t
 
 ## Features
 
-- **Real-time wait times** from queue-times.com (5-minute refresh)
+- **Real-time wait times** from queue-times.com (10-minute refresh)
 - **Full-screen ride images** with clean bottom bar overlay
 - **68 AI-generated images** (64 rides + 4 parks) via DALL-E 3
 - **10 themed fonts** matched to ride aesthetics (sci-fi, spooky, pirate, etc.)
@@ -14,6 +14,9 @@ A pygame-based display application that shows real-time Walt Disney World wait t
 - **Smooth crossfade transitions** between rides
 - **60+ ride mappings** across all 4 WDW parks
 - **Closed park display** with park-specific imagery when parks aren't operating
+- **Weather display** with OpenWeatherMap integration and custom icons
+- **Web dashboard** for historical wait time trends (Flask + SQLite)
+- **Special events** - fireworks and parade video playback with Sora AI-generated videos
 - **Graceful error handling** with stale data warnings
 - **Fully automated** - set it and forget it
 
@@ -241,11 +244,12 @@ sudo timedatectl set-timezone America/New_York
 python main.py [options]
 
 Options:
-  --fullscreen       Run in fullscreen mode
-  --text-only        Print wait times to console (no GUI)
-  --config FILE      Use custom config file (default: config.yaml)
-  --log-level LEVEL  Set log level: DEBUG, INFO, WARNING, ERROR
-  --no-console-log   Disable console logging (file only)
+  --fullscreen        Run in fullscreen mode
+  --text-only         Print wait times to console (no GUI)
+  --config FILE       Use custom config file (default: config.yaml)
+  --log-level LEVEL   Set log level: DEBUG, INFO, WARNING, ERROR
+  --no-console-log    Disable console logging (file only)
+  --test-event TYPE   Test event animation (fireworks, fireworks-epcot, parade)
 ```
 
 ## Closed Park Display
@@ -280,6 +284,47 @@ This provides a nice visual even during off-hours instead of a blank screen.
 - Check image format (PNG/JPG only)
 - Check logs for loading errors
 
+## Web Dashboard
+
+Access the web dashboard at `http://<pi-ip>/` to view:
+
+- Current wait times for all parks
+- Historical trend graphs
+- Individual ride statistics
+- JSON API endpoints (`/api/waits`, `/api/history`)
+
+### Weather Setup
+
+1. Get a free API key from [OpenWeatherMap](https://openweathermap.org/api)
+2. Add to `config.yaml`:
+   ```yaml
+   weather:
+     enabled: true
+     api_key: "your-api-key"
+   ```
+
+### Special Events
+
+Fireworks and parade videos play automatically at scheduled times. Test with:
+
+```bash
+python main.py --test-event fireworks        # Magic Kingdom fireworks
+python main.py --test-event fireworks-epcot  # EPCOT fireworks
+python main.py --test-event parade           # Magic Kingdom parade
+```
+
+## Roadmap (Phase 9+)
+
+Future enhancements under consideration:
+
+- [ ] **Multi-resort support** - Disneyland, Tokyo Disney, international parks
+- [ ] **Lightning Lane integration** - Show LL return times alongside standby
+- [ ] **Mobile companion app** - Remote monitoring from your phone
+- [ ] **Voice announcements** - Audio alerts when favorite rides have short waits
+- [ ] **Predictive wait times** - ML-based predictions for optimal visit planning
+- [ ] **Additional event videos** - Hollywood Studios, Animal Kingdom events
+- [ ] **Enhanced web dashboard** - More visualizations, park comparisons, data export
+
 ## License
 
 MIT License - see LICENSE file.
@@ -287,5 +332,7 @@ MIT License - see LICENSE file.
 ## Credits
 
 - Wait time data: [queue-times.com](https://queue-times.com)
+- Weather data: [OpenWeatherMap](https://openweathermap.org)
 - Fonts: Google Fonts
-- Images: Generated with DALL-E 3
+- Ride images: Generated with DALL-E 3
+- Event videos: Generated with OpenAI Sora

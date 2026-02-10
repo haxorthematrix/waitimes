@@ -502,13 +502,46 @@ python main.py --log-level DEBUG  # Override log level
 
 ## Future Enhancements (Phase 9+)
 
-- **Multi-resort support:** Disneyland, international parks
-- **Lightning Lane integration:** Show LL return times
-- **Mobile app:** Companion app for remote monitoring
-- **Voice announcements:** Audio alerts for favorite rides
-- **Predictive wait times:** ML-based wait time predictions
-- **Additional event videos:** Hollywood Studios, Animal Kingdom events
-- **Enhanced web dashboard:** More visualizations, ride comparisons
+### Multi-Resort Support
+- [ ] Disneyland Resort (California)
+- [ ] Tokyo Disney Resort
+- [ ] Disneyland Paris
+- [ ] Hong Kong Disneyland
+- [ ] Shanghai Disneyland
+
+### Lightning Lane Integration
+- [ ] Show LL return times alongside standby wait times
+- [ ] Visual indicator for LL availability
+- [ ] Individual Lightning Lane pricing display
+
+### Mobile Companion App
+- [ ] iOS/Android app for remote monitoring
+- [ ] Push notifications for short wait times
+- [ ] Favorite ride alerts
+
+### Voice Announcements
+- [ ] Text-to-speech for wait time updates
+- [ ] Audio alerts when favorite rides drop below threshold
+- [ ] Configurable announcement intervals
+
+### Predictive Analytics
+- [ ] ML-based wait time predictions
+- [ ] Historical pattern analysis
+- [ ] Optimal visit time recommendations
+- [ ] Crowd level forecasting
+
+### Additional Content
+- [ ] Hollywood Studios event videos (Fantasmic, etc.)
+- [ ] Animal Kingdom event videos (Tree of Life Awakenings)
+- [ ] Character meet & greet wait times
+- [ ] Dining availability integration
+
+### Enhanced Web Dashboard
+- [ ] Interactive wait time graphs
+- [ ] Park-to-park comparisons
+- [ ] Data export (CSV, JSON)
+- [ ] Mobile-responsive design improvements
+- [ ] User accounts and preferences
 
 ---
 
